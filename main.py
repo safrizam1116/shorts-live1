@@ -1,45 +1,59 @@
-
-import time
-import requests
-import subprocess
 import os
+import subprocess
+import time
+from threading import Thread
+from flask import Flask
 
-STATUS_URL = os.getenv("STATUS_URL", "https://shorts-control.onrender.com/status")
-STREAM_KEY = os.getenv("STREAM_KEY", "PASTE_YOUR_KEY")
-VIDEO_PATH = "video.mp4"
+app = Flask(__name__)
 
-def is_status_on():
-    try:
-        r = requests.get(STATUS_URL, timeout=5)
-        return r.json().get("status") == "ON"
-    except:
-        return False
+@app.route("/")
+def home():
+    return "🟢 Live streaming bot is running (Render.com)"
+
+def run_flask():
+    app.run(host="0.0.0.0", port=3000)
 
 def start_stream():
-    print("🎬 Mulai streaming loop...")
-    command = [
-        "ffmpeg", "-re", "-stream_loop", "-1", "-i", VIDEO_PATH,
-        "-c:v", "libx264", "-preset", "veryfast", "-maxrate", "3000k",
-        "-bufsize", "6000k", "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
-        "-f", "flv", f"rtmp://a.rtmp.youtube.com/live2/{STREAM_KEY}"
-    ]
-    return subprocess.Popen(command)
+    stream_key = os.getenv("STREAM_KEY")
+    if not stream_key:
+        print("❌ STREAM_KEY belum diset di Environment Variables.")
+        return
+
+    input_file = "live1.mp4"
+    if not os.path.exists(input_file):
+        print(f"❌ File {input_file} tidak ditemukan.")
+        return
+
+    print("🔁 Starting 9:16 loop live stream...")
+
+    try:
+        command = [
+            "ffmpeg",
+            "-re",
+            "-stream_loop", "-1",
+            "-i", input_file,
+            "-vf", "scale=1080:1920",
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-maxrate", "3000k",
+            "-bufsize", "6000k",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-ar", "44100",
+            "-f", "flv",
+            f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"
+        ]
+
+        subprocess.run(command)
+    except Exception as e:
+        print(f"❌ Gagal jalankan ffmpeg: {e}")
 
 if __name__ == "__main__":
-    print("🔄 shorts-live aktif, monitoring status setiap 1 menit...")
-    process = None
-    while True:
-        if is_status_on():
-            if not process or process.poll() is not None:
-                print("✅ Status ON → Mulai streaming...")
-                process = start_stream()
-            else:
-                print("📶 Streaming masih berjalan...")
-        else:
-            if process:
-                print("⛔ Status OFF → Stop streaming...")
-                process.terminate()
-                process = None
-            else:
-                print("🛑 Status masih OFF")
-        time.sleep(60)
+    # Jalankan Flask server agar Render deteksi port
+    Thread(target=run_flask).start()
+    
+    # Tunggu sebentar agar Flask stabil
+    time.sleep(3)
+    
+    # Mulai loop streaming
+    start_stream()
