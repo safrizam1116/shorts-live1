@@ -1,2 +1,8 @@
-requests
 flask
+waitress
+gdown
+pytz
+google-api-python-client
+google-auth
+google-auth-oauthlib
+moviepy
